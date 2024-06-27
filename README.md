@@ -1,5 +1,16 @@
 # τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains
 
+# install DF CX SDK
+
+```
+gsutil cp gs://agent-evals/v3alpha1_dialogflow-v3alpha1-py.tar /content/v3alpha1_dialogflow-v3alpha1-py.tar
+tar -xvf content/v3alpha1_dialogflow-v3alpha1-py.tar
+venv/bin/python3 dialogflow-v3alpha1-py/setup.py sdist
+venv/bin/pip install content/v3alpha1_dialogflow-v3alpha1-py.tar
+
+venv/bin/pip install google-cloud-dialogflow-cx
+```
+
 ## Setup
 
 1. Clone this repository:
@@ -33,3 +44,9 @@ python run.py --env retail --model gpt-4o --max_concurrency 10
 ```
 
 Set max concurrency according to your API limit.
+
+Run a decibel agent: 
+
+```
+tau-bench/run.py --env retail --model gemini-pro --agent_strategy decibel --max_concurrency 1 --start_index 0 --end_index 1
+```

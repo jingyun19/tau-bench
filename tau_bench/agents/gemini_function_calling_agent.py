@@ -11,7 +11,7 @@ from tenacity import retry, stop_after_attempt, wait_random_exponential
 from termcolor import colored
 
 
-@retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
+# @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(3))
 def chat_completion_request(func, **kwargs):
     return func(**kwargs)
 

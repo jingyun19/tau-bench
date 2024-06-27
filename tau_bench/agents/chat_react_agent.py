@@ -34,7 +34,7 @@ def initialize_create(mode="openai", **kwargs):
         create_mode = "google"
 
 
-@retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
+# @retry(wait=wait_random_exponential(multiplier=1, max=40), stop=stop_after_attempt(10))
 def get_message_action(
     messages, model, **kwargs
 ):  # kwargs only contain temperature for now
@@ -84,6 +84,7 @@ class ChatReActAgent(BaseAgent):
     def __init__(self, tools, wiki, model: str = "gpt-4-turbo", reason: bool = True):
         instruction = react_instruction if reason else act_instruction
         self.prompt = wiki + "\n#Available tools\n" + json.dumps(tools) + instruction
+        print("###DEBUG. prompt: ", self.prompt)
         self.model = model
         self.reset()
 

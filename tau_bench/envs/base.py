@@ -57,11 +57,13 @@ class BaseEnv:
         self.index = None
 
     def reset(self, index=None, obs=True) -> Tuple[str, Dict[str, Any]]:
+        print(f"====== DEBUG. Env reset to [{index}] with obs [{obs}]")
         if index is None:
             index = random.randint(0, len(self.tasks))
         self.index = index
         self.data = deepcopy(self.init_data)
         self.task = self.tasks[index]
+        print("task is:", self.task)
         self.actions = []  # store the actions from the agent
         observation = (
             self.user.reset(instruction=self.task["instruction"]) if obs else ""
@@ -83,7 +85,8 @@ class BaseEnv:
         if action["name"] == "respond":
             observation = self.user.step(action["arguments"]["content"])
             reward, done, info = 0, False, {"source": "user"}
-            if observation == "###STOP###":
+            # gemini sometimes produce "thank you\n\n ###STOP###"
+            if observation == "###STOP###" or observation.strip("\n").endswith("###STOP###"):
                 done = True
         elif action["name"] in self.tools_dict:
             try:
@@ -108,6 +111,7 @@ class BaseEnv:
         return consistent_hash(to_hashable(self.data))
 
     def calculate_reward(self) -> Tuple[float, Dict[str, Any]]:
+        print("======== DEBUG. Calculating reward. self.terminate_tools=", self.terminate_tools)
         data_hash = self.get_data_hash()
         reward, info = 1, {
             "data_hash": data_hash,
