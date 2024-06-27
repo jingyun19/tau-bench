@@ -11,6 +11,8 @@ from datetime import datetime
 from tau_bench.agents.base import BaseAgent
 from tau_bench.envs import get_env
 
+import google.generativeai as genai
+
 
 def run(
     args: argparse.Namespace,
@@ -48,7 +50,7 @@ def run(
                 args=args,
             )
 
-            print(f"Running task {idx}")
+            print(f"================== Running task {idx} ==================")
             try:
                 reward, info = isolated_agent.act(
                     isolated_env,
@@ -164,6 +166,9 @@ def agent_factory(tools_info, wiki, args: argparse.Namespace) -> BaseAgent:
                 base_url="https://api.endpoints.anyscale.com/v1",
             )
         return ChatReActAgent(tools_info, wiki, model=args.model, reason=args.think)
+    elif args.agent_strategy == "decibel":
+        from tau_bench.agents.decibel_agent import DecibelAgent
+        return DecibelAgent(model=args.model, agent_id=args.agent_id, project_id=args.project_id, service_account_file=args.gcp_sa_file) 
     else:
         raise ValueError(f"Unknown agent strategy: {args.agent_strategy}")
 
@@ -196,6 +201,7 @@ def main():
             "gemini-1.5-pro-latest",
             "gemini-1.5-flash-latest",
             "gemini-1.0-pro",
+            "gemini-pro",
             # mistral api models,
             "open-mixtral-8x22b",
             "mistral-large-latest",
@@ -216,8 +222,11 @@ def main():
         "--agent_strategy",
         type=str,
         default="function_calling",
-        choices=["function_calling", "react"],
+        choices=["function_calling", "react", "decibel"],
     )
+    parser.add_argument("--agent_id", type=str, default="429da584-b933-4372-822c-52d124ba5a26")
+    parser.add_argument("--project_id", type=str, default="df-decibel2-dev-test")
+    parser.add_argument("--gcp_sa_file", type=str, default="df-decibel2-dev-test-934d38d2bb24.json")
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument(
         "--task_split", type=str, default="test", choices=["train", "test", "dev"]
@@ -262,4 +271,5 @@ def main():
 
 
 if __name__ == "__main__":
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     main()
