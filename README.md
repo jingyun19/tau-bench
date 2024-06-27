@@ -1,4 +1,5 @@
 # τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains
+Paper: https://arxiv.org/abs/2406.12045
 
 # install DF CX SDK
 
