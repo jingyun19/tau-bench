@@ -84,7 +84,6 @@ class ChatReActAgent(BaseAgent):
     def __init__(self, tools, wiki, model: str = "gpt-4-turbo", reason: bool = True):
         instruction = react_instruction if reason else act_instruction
         self.prompt = wiki + "\n#Available tools\n" + json.dumps(tools) + instruction
-        print("###DEBUG. prompt: ", self.prompt)
         self.model = model
         self.reset()
 

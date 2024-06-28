@@ -3,20 +3,68 @@ import json
 import time
 import uuid
 import traceback
+from typing import Any, Dict, List
 
-from tenacity import retry, stop_after_attempt, wait_random_exponential
+from termcolor import colored
 
 from tau_bench.agents.base import BaseAgent
-from tau_bench.agents.utils import pretty_print_conversation
 from google.cloud.dialogflowcx_v3beta1 import services, types
 from google.oauth2 import service_account
 import google.cloud.dialogflow_v3alpha1 as df_v3alpha1
 from google.protobuf.struct_pb2 import Struct
 from google.protobuf.json_format import MessageToDict
+import proto.marshal.collections.maps
+import proto.marshal.collections.repeated
 
 
 LANG_CODE="en"
 
+
+def map_composite_to_dict(map_composite):
+    return {key: make_json_dumpable(value) for key, value in map_composite.items()}
+
+
+def repeated_composite_to_list(repeated_composite):
+    return [make_json_dumpable(item) for item in repeated_composite]
+
+
+def make_json_dumpable(data):
+    if isinstance(data, dict):
+        return {key: make_json_dumpable(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [make_json_dumpable(item) for item in data]
+    elif isinstance(data, proto.marshal.collections.maps.MapComposite):
+        return map_composite_to_dict(data)
+    elif isinstance(data, proto.marshal.collections.repeated.RepeatedComposite):
+        return repeated_composite_to_list(data)
+    else:
+        return data
+
+
+def pretty_print_conversation(messages: List[Dict[str, Any]]) -> None:
+    role_to_color = {
+        "system": "red",
+        "user": "green",
+        "assistant": "yellow",
+        "tool": "magenta",
+    }
+
+    for message in messages:
+        if message["role"] == "system":
+            print(colored(f"system: {message['content']}\n", role_to_color[message["role"]]))
+        elif message["role"] == "user":
+            print(colored(f"user: {message['content']}\n", role_to_color[message["role"]]))
+        elif message["role"] == "assistant" :
+            print(
+                colored(f"assistant: {message['query_result']}\n", role_to_color[message["role"]])
+            )
+        elif message["role"] == "tool":
+            print(
+                colored(
+                    f"tool: {message['tool_result']}\n",
+                    role_to_color[message["role"]],
+                )
+            )
 
 
 class DecibelAgent(BaseAgent):
@@ -35,8 +83,7 @@ class DecibelAgent(BaseAgent):
 
         
     def get_action(self):
-        request = types.session.DetectIntentRequest()
-        request.session = self.session_id
+        request = types.session.DetectIntentRequest(session=self.session_id)
         if len(self.pending_tool_calls) == 0:
             text_input = types.session.TextInput(text=self.messages[-1]["content"])
             request.query_input = types.session.QueryInput(text=text_input, language_code=LANG_CODE)
@@ -53,21 +100,27 @@ class DecibelAgent(BaseAgent):
         response = self.session_client.detect_intent(request=request)
         result = response.query_result.response_messages
         if len(result)!=1:
-            raise Exception("DetectIntentResponse.query_result.response_messages has incorrect length!")
+            raise Exception(f"DetectIntentResponse.query_result.response_messages has incorrect length, expect 1, got [{len(result)}]")
         
         action_name = ""
         action_args = {}
         if "text" in result[0]:
             action_name = "respond"
             action_args = {"content": result[0].text.text[0]}
+        elif "end_interaction" in result[0]:
+            action_name = "respond"
+            action_args = {"content": "END CONVERSATION"}
         else:
             tool_call = result[0].tool_call
             if tool_call.tool not in self.tools_name_map:
-                raise Exception(f"Unknown tool from decibel agent. response: [{result}]")
+                raise Exception("Unknown tool [{%s}] from decibel agent. response: [{%s}]" %(tool_call.tool, response))
             action_name = self.tools_name_map[tool_call.tool]
             action_args = {k:v for k,v in tool_call.input_parameters.items()}
+            # action_args = MessageToDict(tool_call.input_parameters)
+            action_args = make_json_dumpable(action_args)
             self.pending_tool_calls.append(tool_call)
-        return response.query_result, {"name": action_name, "arguments": action_args}
+        content = {"response_message": make_json_dumpable(MessageToDict(result[0]._pb)), "generative_info": make_json_dumpable(MessageToDict(response.query_result.generative_info._pb))}
+        return content, {"name": action_name, "arguments": action_args}
 
 
     def reset(self):
@@ -77,9 +130,9 @@ class DecibelAgent(BaseAgent):
     def act(self, env, index=None, verbose=False, temperature=0.0):
         self.reset()
         obs, info = env.reset(index=index)
+        print("INFO: Env reset. Info: ", info)
         reward = 0
         self.messages.append({"role": "user", "content": obs})
-        print("Agent messages: ",self.messages)
         for _ in range(30):
             try:
                 message, action = self.get_action()
@@ -87,13 +140,15 @@ class DecibelAgent(BaseAgent):
                 print(traceback.format_exc())
                 info["error"] = str(e)
                 break
-            print("=======INFO: DF Agent returned action: ", action)
-            self.messages.append({"role": "assistant", "detect_intent_result": MessageToDict(message._pb)})
+            # print("=======INFO: DF Agent returned action: ", action)
+            self.messages.append({"role": "assistant", "query_result": message})
 
-            obs, reward, done, info = env.step(action)
-            print("=======INFO: Env returned observation: ", obs)
+
+            obs, reward, done, env_info = env.step(action)
+            # print("=======INFO: Env returned observation: ", obs)
+            info.update(env_info)
             if action["name"] != "respond":
-                self.messages.append({"role": "user", "tool_result": obs})
+                self.messages.append({"role": "tool", "tool_result": obs})
             else:
                 self.messages.append({"role": "user", "content": obs})
             if verbose:

@@ -14,6 +14,15 @@ from tau_bench.envs import get_env
 import google.generativeai as genai
 
 
+# DEBUG only
+def is_jsonable(x):
+    try:
+        json.dumps(x)
+        return True
+    except:
+        return False
+    
+
 def run(
     args: argparse.Namespace,
     ckpt_path,
@@ -88,9 +97,14 @@ def run(
                     json.dump(data + [result], f, indent=2)
             return result
 
-        with ThreadPoolExecutor(max_workers=args.max_concurrency) as executor:
-            res = list(executor.map(_run, idxs))
-            results.extend(res)
+        # with ThreadPoolExecutor(max_workers=args.max_concurrency) as executor:
+        #     res = list(executor.map(_run, idxs))
+        #     results.extend(res)
+
+        # No concurrency
+        for idx in idxs:
+            res = _run(idx)
+            results.append(res)
 
     return results
 

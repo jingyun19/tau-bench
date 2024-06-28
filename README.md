@@ -46,8 +46,8 @@ python run.py --env retail --model gpt-4o --max_concurrency 10
 
 Set max concurrency according to your API limit.
 
-Run a decibel agent: 
+Run a decibel agent with gemini as user model: 
 
 ```
-tau-bench/run.py --env retail --model gemini-pro --agent_strategy decibel --max_concurrency 1 --start_index 0 --end_index 1
+venv/bin/python3 tau-bench/run.py --env retail  --agent_strategy decibel --agent_id 429da584-b933-4372-822c-52d124ba5a26 --project_id df-decibel2-dev-test  --start_index 0 --end_index -1  --user_model gemini-1.5-pro
 ```
