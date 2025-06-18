@@ -88,3 +88,6 @@ class RunConfig(BaseModel):
     shuffle: int = 0
     user_strategy: str = "llm"
     few_shot_displays_path: Optional[str] = None
+    agent_id: str = "", 
+    project_id: str = "",
+    gcp_sa_file: str = "",

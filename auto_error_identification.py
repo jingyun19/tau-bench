@@ -81,10 +81,16 @@ def context_description(grading_strategy: GradingStrategy) -> str:
 - The trajectory has been determined to have a fault."""
 
 def display_traj(traj: List[Dict[str, Any]]) -> str:
-    if len(traj) == 0:
-        raise ValueError("Trajectory is empty")
+    # if len(traj) == 0:
+    #     raise ValueError("Trajectory is empty")
     stripped_traj = [item for item in traj if item["role"] != "system"]
-    return "\n".join([f"{item['role'].capitalize()}: {item['content']}" for item in stripped_traj])
+    traj_list = []
+    for item in stripped_traj:
+        if "content" in item:
+            traj_list.append(f"{item['role'].capitalize()}: {item['content']}")
+        else:
+            traj_list.append(f"{item['role'].capitalize()}: {item['tool_result']}")
+    return "\n".join(traj_list)
 
 def display_actions(actions: List[Action]) -> str:
     return json.dumps([action.model_dump() for action in actions], indent=4)

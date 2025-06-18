@@ -21,7 +21,7 @@ def run(config: RunConfig) -> List[EnvRunResult]:
     assert config.env in ["retail", "airline"], "Only retail and airline envs are supported"
     assert config.model_provider in provider_list, "Invalid model provider"
     assert config.user_model_provider in provider_list, "Invalid user model provider"
-    assert config.agent_strategy in ["tool-calling", "act", "react", "few-shot"], "Invalid agent strategy"
+    assert config.agent_strategy in ["tool-calling", "act", "react", "few-shot", "decibel"], "Invalid agent strategy"
     assert config.task_split in ["train", "test", "dev"], "Invalid task split"
     assert config.user_strategy in [item.value for item in UserStrategy], "Invalid user strategy"
 
@@ -173,6 +173,15 @@ def agent_factory(
             few_shot_displays=few_shot_displays,
             temperature=config.temperature,
         )
+    elif config.agent_strategy == "decibel":
+        from tau_bench.agents.decibel_agent import DecibelAgent
+        return DecibelAgent(
+            model=config.model, 
+            agent_id=config.agent_id, 
+            project_id=config.project_id, 
+            service_account_file=config.gcp_sa_file
+        )
+
     else:
         raise ValueError(f"Unknown agent strategy: {config.agent_strategy}")
 

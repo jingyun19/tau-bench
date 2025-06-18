@@ -17,6 +17,7 @@ from tau_bench.types import (
     RewardActionInfo,
     RESPOND_ACTION_NAME,
 )
+import time
 
 ToHashable = Union[
     str, int, float, Dict[str, "ToHashable"], List["ToHashable"], Set["ToHashable"]
@@ -40,6 +41,19 @@ def consistent_hash(
 ) -> str:
     return sha256(str(value).encode("utf-8")).hexdigest()
 
+def retry_helper(func, retries=10, delay=1):
+    """
+    A simple retry helper that retries a function call if it raises an exception.
+    """
+    for attempt in range(retries):
+        try:
+            return func()
+        except Exception as e:
+            if attempt < retries - 1:
+                print(f"Retrying due to error: {e}. Attempt {attempt + 1}/{retries}.")
+                time.sleep(delay)
+            else:
+                raise e
 
 class Env(object):
     def __init__(
@@ -95,6 +109,7 @@ class Env(object):
         done = False
         if action.name == RESPOND_ACTION_NAME:
             info.source = "user"
+            observation = retry_helper(lambda: self.user.step(action.kwargs["content"]))
             # gemini sometimes produce "thank you\n\n ###STOP###"
             if observation == "###STOP###" or observation.strip("\n").endswith("###STOP###"):
                 done = True

@@ -5,10 +5,23 @@ from google.generativeai import GenerativeModel, GenerationConfig
 from google.generativeai import protos
 import abc
 import enum
+import time
 from litellm import completion
-
 from typing import Optional, List, Dict, Any, Union
 
+def retry_helper(func, retries=10, delay=1):
+    """
+    A simple retry helper that retries a function call if it raises an exception.
+    """
+    for attempt in range(retries):
+        try:
+            return func()
+        except Exception as e:
+            if attempt < retries - 1:
+                print(f"Retrying due to error: {e}. Attempt {attempt + 1}/{retries}.")
+                time.sleep(delay)
+            else:
+                raise e
 
 class BaseUserSimulationEnv(abc.ABC):
     metadata = {}
@@ -96,8 +109,10 @@ class LLMUserSimulationEnv(BaseUserSimulationEnv):
         self.reset()
 
     def generate_next_message(self, messages: List[Dict[str, Any]]) -> str:
-        res = completion(
-            model=self.model, custom_llm_provider=self.provider, messages=messages
+        res = retry_helper(
+            lambda: completion(
+                model=self.model, temperature=0, custom_llm_provider=self.provider, messages=messages
+            )
         )
         message = res.choices[0].message
         self.messages.append(message.model_dump())
@@ -116,6 +131,7 @@ Rules:
 - Do not give away all the instruction at once. Only provide the information that is necessary for the current step.
 - Do not hallucinate information that is not provided in the instruction. For example, if the agent asks for the order id but it is not mentioned in the instruction, do not make up an order id, just say you do not remember or have it.
 - If the instruction goal is satisified, generate '###STOP###' as a standalone message without anything else to end the conversation.
+- DO NOT generate ###STOP### when asks to confirm the tool call (before the actual tool call). Make sure to generate ###STOP### after the agent has completed all its actions.
 - Do not repeat the exact instruction in the conversation. Instead, use your own words to convey the same information.
 - Try to make the conversation as natural as possible, and stick to the personalities in the instruction."""
 
